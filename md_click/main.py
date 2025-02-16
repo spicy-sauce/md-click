@@ -1,7 +1,6 @@
-import importlib
-import pathlib
-
 import click
+import pathlib
+import importlib
 
 md_base_template = """
 # {command_name}
@@ -13,6 +12,9 @@ md_base_template = """
 ```
 {usage}
 ```
+
+## Arguments
+{arguments}
 
 ## Options
 {options}
@@ -50,14 +52,23 @@ def dump_helper(base_command, docs_dir):
         parent = helpdct.get("parent", "") or ''
         options = {
             opt.name: {
-                "usage": '\n'.join(opt.opts),
-                "prompt": None if type(opt) == click.core.Argument else opt.prompt,
-                "required": opt.required,
-                "default": opt.default,
-                "help": None if type(opt) == click.core.Argument else opt.help,
-                "type": str(opt.type)
+               "usage": '\n'.join(opt.opts),
+                "prompt": getattr(opt, "prompt", None),
+                "required": getattr(opt, "required", None),
+                "default": getattr(opt, "default", None),
+                "help": getattr(opt, "help", None),
+                "type": str(getattr(opt, "type", None))
             }
-            for opt in helpdct.get('params', [])
+            for opt in helpdct.get('params', []) if isinstance(opt, click.core.Option)
+        }
+        arguments = {
+            arg.name: {
+                "usage": '\n'.join(arg.opts),
+                "required": arg.required,
+                "default": arg.default,
+                "type": str(arg.type)
+            }
+            for arg in helpdct.get('params', []) if isinstance(arg, click.core.Argument)
         }
         full_command = f"{str(parent) + ' ' if parent else ''}{str(command.name)}"
 
@@ -66,16 +77,27 @@ def dump_helper(base_command, docs_dir):
             description=command.help,
             usage=usage,
             options="\n".join([
-                f"* `{opt_name}`{' (REQUIRED)' if opt.get('required') else ''}: \n"
-                f"  * Type: {opt.get('type')} \n"
-                f"  * Default: `{str(opt.get('default')).lower()}`\n"
-                f"  * Usage: `{opt.get('usage')}`\n"
-                "\n"
-                f"  {opt.get('help') or ''}\n"
-                f"\n"
+                f"""
+* `{opt_name}`{' (REQUIRED)' if opt.get('required') else ''}:
+    * Type: {opt.get('type')}
+    * Default: `{str(opt.get('default'))}`
+    * Usage: `{opt.get('usage')}`
+
+    {opt.get('help') or ''}
+
+"""
                 for opt_name, opt in options.items()
             ]),
-            help=helptxt
+            help=helptxt,
+            arguments="\n".join([
+                f"""
+* `{arg_name}`{' (REQUIRED)' if arg.get('required') else ''}:
+    * Type: {arg.get('type')}
+    * Default: `{str(arg.get('default'))}`
+    * Usage: `{arg.get('usage')}`
+"""
+                for arg_name, arg in arguments.items()
+            ]),
         )
 
         if not docs_path.exists():
@@ -88,11 +110,9 @@ def dump_helper(base_command, docs_dir):
         with open(md_file_path, 'w') as md_file:
             md_file.write(md_template)
 
-
 @click.group()
 def cli():
     pass
-
 
 @cli.command('dumps')
 @click.option('--baseModule', help='The base command module path to import', required=True)
