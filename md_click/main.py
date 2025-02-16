@@ -1,5 +1,5 @@
-import pathlib
 import importlib
+import pathlib
 
 import click
 
