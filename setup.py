@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-from md_click import __version__
 
 with open('requirements.txt', 'r') as req:
     install_requires = req.readlines()
